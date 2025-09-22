@@ -1,0 +1,14 @@
+graph LR
+    subgraph "Redis Data Lifecycle"
+        Create[Job Created] -->|ZADD| Active[Active in Queue<br/>pq:queue]
+        Active -->|ZPOPMAX| Process[Processing]
+        Process -->|Complete| TTL[Job Data<br/>24hr TTL]
+        TTL -->|Auto Expire| Deleted[Cleaned Up]
+    end
+    
+    subgraph "Memory Safe"
+        Note[No Permanent Storage<br/>All Keys Have TTL<br/>Auto-Cleanup]
+    end
+    
+    style TTL fill:#FFE5B4
+    style Deleted fill:#90EE90

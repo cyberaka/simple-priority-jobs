@@ -1,0 +1,24 @@
+graph TB
+    subgraph "Current State - No Priority"
+        C1[Customer Request] --> M1[Monolith]
+        M1 --> Q1[FIFO Processing]
+        Q1 --> J1[Job 1: Free]
+        Q1 --> J2[Job 2: Premium]
+        Q1 --> J3[Job 3: Free]
+        Q1 --> J4[Job 4: Premium]
+        
+        style J2 fill:#FFE5B4
+        style J4 fill:#FFE5B4
+    end
+    
+    subgraph "Proposed State - With Priority"
+        C2[Customer Request] --> M2[Monolith]
+        M2 --> PQ[Priority Queue Module]
+        PQ --> P1[Job 2: Premium - 1000]
+        PQ --> P2[Job 4: Premium - 1000]
+        PQ --> P3[Job 1: Free - 100]
+        PQ --> P4[Job 3: Free - 100]
+        
+        style P1 fill:#90EE90
+        style P2 fill:#90EE90
+    end

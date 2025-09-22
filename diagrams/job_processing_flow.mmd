@@ -1,0 +1,18 @@
+flowchart TD
+    Start([Worker Polling]) --> Check{USE_PRIORITY_QUEUE?}
+    Check -->|No| Legacy[Use Existing Logic]
+    Check -->|Yes| Random{Random < 0.1?}
+    
+    Random -->|10% Yes| LowPri[ZPOPMIN<br/>Get Lowest Priority]
+    Random -->|90% No| HighPri[ZPOPMAX<br/>Get Highest Priority]
+    
+    LowPri --> Process[Process Job]
+    HighPri --> Process
+    Legacy --> Process
+    
+    Process --> Complete[Mark Complete]
+    Complete --> Cleanup[Redis TTL Auto-cleanup]
+    Cleanup --> Start
+    
+    style HighPri fill:#90EE90
+    style LowPri fill:#FFE5B4

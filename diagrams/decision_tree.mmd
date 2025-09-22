@@ -1,0 +1,20 @@
+flowchart TD
+    Start[Do you need priority queuing?] -->|Yes| Q1{Can you provision<br/>new infrastructure?}
+    Start -->|No| NoNeed[Keep current system]
+    
+    Q1 -->|No| Q2{Do you have<br/>Redis + MongoDB?}
+    Q1 -->|Yes| Consider[Consider dedicated<br/>queue service]
+    
+    Q2 -->|Yes| Q3{Need solution<br/>in 4 days?}
+    Q2 -->|No| Block[Blocked -<br/>Need Redis first]
+    
+    Q3 -->|Yes| Q4{OK with simple<br/>2-tier priority?}
+    Q3 -->|No| Complex[Need more time<br/>for complex solution]
+    
+    Q4 -->|Yes| Success[✅ Use This Proposal]
+    Q4 -->|No| Enhance[Start simple,<br/>enhance later]
+    
+    Enhance --> Success
+    
+    style Success fill:#90EE90,stroke:#333,stroke-width:4px
+    style Block fill:#FF6B6B

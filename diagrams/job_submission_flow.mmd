@@ -1,0 +1,23 @@
+sequenceDiagram
+    participant Client
+    participant Monolith
+    participant PriorityModule
+    participant Redis
+    participant MongoDB
+    
+    Client->>Monolith: Submit Job
+    Monolith->>MongoDB: Get Customer Tier
+    MongoDB-->>Monolith: Return Tier (Premium/Free)
+    
+    alt Feature Flag Enabled
+        Monolith->>PriorityModule: Route to Priority Queue
+        PriorityModule->>PriorityModule: Calculate Priority<br/>(Premium=1000, Free=100)
+        PriorityModule->>Redis: ZADD job to sorted set
+        PriorityModule->>Redis: SET job data with TTL
+        Redis-->>PriorityModule: Confirmed
+        PriorityModule-->>Monolith: Job Queued
+    else Feature Flag Disabled
+        Monolith->>Monolith: Use Existing Logic
+    end
+    
+    Monolith-->>Client: Job ID

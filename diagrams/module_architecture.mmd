@@ -1,0 +1,43 @@
+classDiagram
+    class PriorityQueueModule {
+        -Redis redis
+        -string QUEUE_KEY
+        -string JOB_PREFIX
+        +addJob(job) Promise
+        +getNextJob() Promise
+        +completeJob(jobId) Promise
+        +getQueueDepth() Promise
+        +getMetrics() Promise
+    }
+    
+    class JobProcessor {
+        -PriorityQueueModule queue
+        -boolean enabled
+        +start() void
+        +stop() void
+        -processLoop() Promise
+        -handleJob(job) Promise
+    }
+    
+    class MonitoringService {
+        -PriorityQueueModule queue
+        -number interval
+        +startMonitoring() void
+        +stopMonitoring() void
+        +getHealthStatus() Object
+        +emitMetrics() void
+    }
+    
+    class FeatureFlag {
+        +isEnabled() boolean
+        +toggle(state) void
+        +getConfig() Object
+    }
+    
+    PriorityQueueModule --> Redis: Uses
+    JobProcessor --> PriorityQueueModule: Dequeues from
+    MonitoringService --> PriorityQueueModule: Monitors
+    JobProcessor --> FeatureFlag: Checks
+    
+    note for PriorityQueueModule "Core queue operations\n300 lines of code"
+    note for FeatureFlag "Simple env variable\nUSE_PRIORITY_QUEUE"

@@ -1,0 +1,16 @@
+graph TD
+    Job[New Job] --> GetTier{Get Customer Tier}
+    GetTier -->|Database Lookup| MongoDB[(MongoDB)]
+    MongoDB -->|Premium| Score1[Priority = 1000]
+    MongoDB -->|Free| Score2[Priority = 100]
+    
+    Score1 --> Add1[ZADD to Redis]
+    Score2 --> Add2[ZADD to Redis]
+    
+    Add1 --> Queue{Redis Sorted Set<br/>pq:queue}
+    Add2 --> Queue
+    
+    Queue --> Display[Queue State:<br/>Job4: 1000<br/>Job2: 1000<br/>Job1: 100<br/>Job3: 100]
+    
+    style Score1 fill:#90EE90
+    style Score2 fill:#FFE5B4

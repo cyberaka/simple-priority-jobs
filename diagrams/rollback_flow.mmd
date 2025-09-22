@@ -1,0 +1,19 @@
+flowchart TD
+    Problem[Issue Detected] --> Action{Rollback Method}
+    
+    Action -->|Option 1| Env[Set USE_PRIORITY_QUEUE=false]
+    Action -->|Option 2| Clear[Clear Redis Queue]
+    
+    Env --> Restart[Restart Monolith<br/>or Hot Reload]
+    Clear --> Redis[redis-cli DEL pq:queue]
+    
+    Restart --> Normal[System Using<br/>Original Logic]
+    Redis --> Recover[Jobs Recovered<br/>from MongoDB]
+    
+    Normal --> Working[✓ System Operational]
+    Recover --> Working
+    
+    style Env fill:#90EE90
+    style Working fill:#90EE90
+    
+    Note[Time to Rollback: < 1 minute]

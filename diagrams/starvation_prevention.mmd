@@ -1,0 +1,23 @@
+stateDiagram-v2
+    [*] --> CheckQueue: Worker Ready
+    
+    CheckQueue --> Roll: Roll Dice
+    
+    Roll --> PriorityDequeue: 90% Chance
+    Roll --> FairnessDequeue: 10% Chance
+    
+    PriorityDequeue --> GetMax: ZPOPMAX
+    FairnessDequeue --> GetMin: ZPOPMIN
+    
+    GetMax --> ProcessJob: Process High Priority
+    GetMin --> ProcessJob: Process Low Priority
+    
+    ProcessJob --> UpdateStats: Update Metrics
+    UpdateStats --> CheckQueue
+    
+    note right of Roll
+        Anti-starvation:
+        10% chance to pick
+        oldest/lowest priority
+        job to ensure fairness
+    end note

@@ -1,0 +1,25 @@
+graph LR
+    subgraph "Your Existing Infrastructure"
+        subgraph "Monolith Application"
+            API[API Layer]
+            BL[Business Logic]
+            NEW[Priority Module<br/>NEW: 300 lines]
+            WORKER[Worker Process]
+        end
+        
+        subgraph "Existing Data Stores"
+            REDIS[(Redis<br/>Existing Instance)]
+            MONGO[(MongoDB<br/>Existing Instance)]
+        end
+        
+        API --> BL
+        BL -.->|Feature Flag| NEW
+        NEW --> REDIS
+        BL --> MONGO
+        WORKER --> NEW
+        NEW --> WORKER
+    end
+    
+    style NEW fill:#90EE90,stroke:#333,stroke-width:4px
+    style REDIS fill:#FFE5E5
+    style MONGO fill:#E5FFE5

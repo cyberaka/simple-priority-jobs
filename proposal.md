@@ -8,349 +8,71 @@ This proposal outlines a **zero-footprint priority queue solution** that require
 
 ### Current State vs Proposed State
 
-```mermaid
-graph TB
-    subgraph "Current State - No Priority"
-        C1[Customer Request] --> M1[Monolith]
-        M1 --> Q1[FIFO Processing]
-        Q1 --> J1[Job 1: Free]
-        Q1 --> J2[Job 2: Premium]
-        Q1 --> J3[Job 3: Free]
-        Q1 --> J4[Job 4: Premium]
-        
-        style J2 fill:#FFE5B4
-        style J4 fill:#FFE5B4
-    end
-    
-    subgraph "Proposed State - With Priority"
-        C2[Customer Request] --> M2[Monolith]
-        M2 --> PQ[Priority Queue Module]
-        PQ --> P1[Job 2: Premium - 1000]
-        PQ --> P2[Job 4: Premium - 1000]
-        PQ --> P3[Job 1: Free - 100]
-        PQ --> P4[Job 3: Free - 100]
-        
-        style P1 fill:#90EE90
-        style P2 fill:#90EE90
-    end
-```
+![Current State vs Proposed State](diagrams/current_vs_proposed.png)
 
 ### System Architecture - Zero New Infrastructure
 
-```mermaid
-graph LR
-    subgraph "Your Existing Infrastructure"
-        subgraph "Monolith Application"
-            API[API Layer]
-            BL[Business Logic]
-            NEW[Priority Module<br/>NEW: 300 lines]
-            WORKER[Worker Process]
-        end
-        
-        subgraph "Existing Data Stores"
-            REDIS[(Redis<br/>Existing Instance)]
-            MONGO[(MongoDB<br/>Existing Instance)]
-        end
-        
-        API --> BL
-        BL -.->|Feature Flag| NEW
-        NEW --> REDIS
-        BL --> MONGO
-        WORKER --> NEW
-        NEW --> WORKER
-    end
-    
-    style NEW fill:#90EE90,stroke:#333,stroke-width:4px
-    style REDIS fill:#FFE5E5
-    style MONGO fill:#E5FFE5
-```
+![System Architecture](diagrams/system_architecture.png)
 
 ## Data Flow Diagrams
 
 ### Job Submission Flow
 
-```mermaid
-sequenceDiagram
-    participant Client
-    participant Monolith
-    participant PriorityModule
-    participant Redis
-    participant MongoDB
-    
-    Client->>Monolith: Submit Job
-    Monolith->>MongoDB: Get Customer Tier
-    MongoDB-->>Monolith: Return Tier (Premium/Free)
-    
-    alt Feature Flag Enabled
-        Monolith->>PriorityModule: Route to Priority Queue
-        PriorityModule->>PriorityModule: Calculate Priority<br/>(Premium=1000, Free=100)
-        PriorityModule->>Redis: ZADD job to sorted set
-        PriorityModule->>Redis: SET job data with TTL
-        Redis-->>PriorityModule: Confirmed
-        PriorityModule-->>Monolith: Job Queued
-    else Feature Flag Disabled
-        Monolith->>Monolith: Use Existing Logic
-    end
-    
-    Monolith-->>Client: Job ID
-```
+![Job Submission Flow](diagrams/job_submission_flow.png)
 
 ### Job Processing Flow with Anti-Starvation
 
-```mermaid
-flowchart TD
-    Start([Worker Polling]) --> Check{USE_PRIORITY_QUEUE?}
-    Check -->|No| Legacy[Use Existing Logic]
-    Check -->|Yes| Random{Random < 0.1?}
-    
-    Random -->|10% Yes| LowPri[ZPOPMIN<br/>Get Lowest Priority]
-    Random -->|90% No| HighPri[ZPOPMAX<br/>Get Highest Priority]
-    
-    LowPri --> Process[Process Job]
-    HighPri --> Process
-    Legacy --> Process
-    
-    Process --> Complete[Mark Complete]
-    Complete --> Cleanup[Redis TTL Auto-cleanup]
-    Cleanup --> Start
-    
-    style HighPri fill:#90EE90
-    style LowPri fill:#FFE5B4
-```
+![Job Processing Flow with Anti-Starvation](diagrams/job_processing_flow.png)
 
 ## Implementation Timeline
 
 ### 4-Day Implementation Plan
 
-```mermaid
-gantt
-    title Zero-Infrastructure Implementation Timeline
-    dateFormat  YYYY-MM-DD
-    section Day 1
-    Create Priority Module           :done, d1, 2024-01-01, 4h
-    Unit Tests                       :done, d1test, after d1, 4h
-    
-    section Day 2
-    Integration Points               :active, d2, 2024-01-02, 3h
-    Feature Flag Setup              :active, d2flag, after d2, 2h
-    Basic Monitoring                :active, d2mon, after d2flag, 3h
-    
-    section Day 3
-    Migration Script                :d3, 2024-01-03, 3h
-    Testing with Real Data          :d3test, after d3, 5h
-    
-    section Day 4
-    Load Testing                    :d4, 2024-01-04, 3h
-    Documentation                   :d4doc, after d4, 2h
-    Rollback Plan Test             :d4roll, after d4doc, 2h
-    Go Live                        :milestone, d4live, after d4roll, 0h
-```
+![Implementation Timeline](diagrams/implementation_timeline.png)
 
 ## Priority Queue Mechanism
 
 ### How Priority Scoring Works
 
-```mermaid
-graph TD
-    Job[New Job] --> GetTier{Get Customer Tier}
-    GetTier -->|Database Lookup| MongoDB[(MongoDB)]
-    MongoDB -->|Premium| Score1[Priority = 1000]
-    MongoDB -->|Free| Score2[Priority = 100]
-    
-    Score1 --> Add1[ZADD to Redis]
-    Score2 --> Add2[ZADD to Redis]
-    
-    Add1 --> Queue{Redis Sorted Set<br/>pq:queue}
-    Add2 --> Queue
-    
-    Queue --> Display[Queue State:<br/>Job4: 1000<br/>Job2: 1000<br/>Job1: 100<br/>Job3: 100]
-    
-    style Score1 fill:#90EE90
-    style Score2 fill:#FFE5B4
-```
+![Priority Scoring Works](diagrams/priority_scoring.png)
 
 ### Starvation Prevention Mechanism
 
-```mermaid
-stateDiagram-v2
-    [*] --> CheckQueue: Worker Ready
-    
-    CheckQueue --> Roll: Roll Dice
-    
-    Roll --> PriorityDequeue: 90% Chance
-    Roll --> FairnessDequeue: 10% Chance
-    
-    PriorityDequeue --> GetMax: ZPOPMAX
-    FairnessDequeue --> GetMin: ZPOPMIN
-    
-    GetMax --> ProcessJob: Process High Priority
-    GetMin --> ProcessJob: Process Low Priority
-    
-    ProcessJob --> UpdateStats: Update Metrics
-    UpdateStats --> CheckQueue
-    
-    note right of Roll
-        Anti-starvation:
-        10% chance to pick
-        oldest/lowest priority
-        job to ensure fairness
-    end note
-```
+![Starvation Prevention Mechanism](diagrams/starvation_prevention.png)
 
 ## Redis Memory Impact
 
 ### Memory Usage Breakdown
 
-```mermaid
-pie title "Redis Memory Distribution"
-    "Existing Session Data" : 20
-    "Existing Cache Data" : 60
-    "Other Existing Usage" : 10
-    "Free Memory" : 10
-    "Priority Queue (NEW)" : 5
-```
+![Memory Usage Breakdown](diagrams/memory_usage.png)
 
 ### Data Lifecycle with Auto-Cleanup
 
-```mermaid
-graph LR
-    subgraph "Redis Data Lifecycle"
-        Create[Job Created] -->|ZADD| Active[Active in Queue<br/>pq:queue]
-        Active -->|ZPOPMAX| Process[Processing]
-        Process -->|Complete| TTL[Job Data<br/>24hr TTL]
-        TTL -->|Auto Expire| Deleted[Cleaned Up]
-    end
-    
-    subgraph "Memory Safe"
-        Note[No Permanent Storage<br/>All Keys Have TTL<br/>Auto-Cleanup]
-    end
-    
-    style TTL fill:#FFE5B4
-    style Deleted fill:#90EE90
-```
+![Data Lifecycle with Auto-Cleanup](diagrams/data_lifecycle.png)
 
 ## Rollback Strategy
 
 ### Instant Rollback Flow
 
-```mermaid
-flowchart TD
-    Problem[Issue Detected] --> Action{Rollback Method}
-    
-    Action -->|Option 1| Env[Set USE_PRIORITY_QUEUE=false]
-    Action -->|Option 2| Clear[Clear Redis Queue]
-    
-    Env --> Restart[Restart Monolith<br/>or Hot Reload]
-    Clear --> Redis[redis-cli DEL pq:queue]
-    
-    Restart --> Normal[System Using<br/>Original Logic]
-    Redis --> Recover[Jobs Recovered<br/>from MongoDB]
-    
-    Normal --> Working[✓ System Operational]
-    Recover --> Working
-    
-    style Env fill:#90EE90
-    style Working fill:#90EE90
-    
-    Note[Time to Rollback: < 1 minute]
-```
+![Instant Rollback Flow](diagrams/rollback_flow.png)
 
 ## Monitoring Dashboard Concept
 
 ### Key Metrics to Track
 
-```mermaid
-graph TB
-    subgraph "Real-time Monitoring Dashboard"
-        subgraph "Queue Metrics"
-            QD[Queue Depth<br/>ZCARD pq:queue]
-            PT[Premium Jobs<br/>ZCOUNT 900-2000]
-            FT[Free Jobs<br/>ZCOUNT 0-200]
-        end
-        
-        subgraph "Performance"
-            TPM[Jobs/Minute]
-            ALT[Avg Latency]
-            WT[Wait Time by Tier]
-        end
-        
-        subgraph "Health"
-            MEM[Redis Memory %]
-            ERR[Error Rate]
-            FLAG[Feature Flag Status]
-        end
-    end
-    
-    QD --> Alert1{Depth > 1000?}
-    Alert1 -->|Yes| Alarm1[⚠️ Alert]
-    
-    MEM --> Alert2{Memory > 90%?}
-    Alert2 -->|Yes| Alarm2[🔴 Critical]
-    
-    style Alarm1 fill:#FFE5B4
-    style Alarm2 fill:#FF6B6B
-```
+![Monitoring Dashboard](diagrams/monitoring_dashboard.png)
 
 ## Cost-Benefit Analysis
 
 ### Implementation Cost vs Value
 
-```mermaid
-graph LR
-    subgraph "Implementation Cost"
-        Dev[4 Dev Days]
-        Infra[$0 Infrastructure]
-        License[$0 Licensing]
-        Ops[$0 Operations]
-    end
-    
-    subgraph "Business Value"
-        SLA[Better SLA for Premium]
-        Satisfaction[Customer Satisfaction ↑]
-        Revenue[Retention ↑]
-        Upgrade[Free→Premium Conversion ↑]
-    end
-    
-    Dev --> TotalCost[Total: 4 Days]
-    Infra --> TotalCost
-    License --> TotalCost
-    Ops --> TotalCost
-    
-    SLA --> ROI[ROI: Week 1]
-    Satisfaction --> ROI
-    Revenue --> ROI
-    Upgrade --> ROI
-    
-    style TotalCost fill:#90EE90
-    style ROI fill:#90EE90
-```
+![Cost-Benefit Analysis](diagrams/cost_benefit.png)
 
 ## Decision Tree
 
 ### Should You Use This Approach?
 
-```mermaid
-flowchart TD
-    Start[Do you need priority queuing?] -->|Yes| Q1{Can you provision<br/>new infrastructure?}
-    Start -->|No| NoNeed[Keep current system]
-    
-    Q1 -->|No| Q2{Do you have<br/>Redis + MongoDB?}
-    Q1 -->|Yes| Consider[Consider dedicated<br/>queue service]
-    
-    Q2 -->|Yes| Q3{Need solution<br/>in 4 days?}
-    Q2 -->|No| Block[Blocked -<br/>Need Redis first]
-    
-    Q3 -->|Yes| Q4{OK with simple<br/>2-tier priority?}
-    Q3 -->|No| Complex[Need more time<br/>for complex solution]
-    
-    Q4 -->|Yes| Success[✅ Use This Proposal]
-    Q4 -->|No| Enhance[Start simple,<br/>enhance later]
-    
-    Enhance --> Success
-    
-    style Success fill:#90EE90,stroke:#333,stroke-width:4px
-    style Block fill:#FF6B6B
-```
+![Decision Tree](diagrams/decision_tree.png)
 
 ## Current Situation Assessment
 
@@ -406,51 +128,7 @@ Monolith → Priority Module (using existing Redis) → Job Processing → Custo
 
 ### Module Internal Architecture
 
-```mermaid
-classDiagram
-    class PriorityQueueModule {
-        -Redis redis
-        -string QUEUE_KEY
-        -string JOB_PREFIX
-        +addJob(job) Promise
-        +getNextJob() Promise
-        +completeJob(jobId) Promise
-        +getQueueDepth() Promise
-        +getMetrics() Promise
-    }
-    
-    class JobProcessor {
-        -PriorityQueueModule queue
-        -boolean enabled
-        +start() void
-        +stop() void
-        -processLoop() Promise
-        -handleJob(job) Promise
-    }
-    
-    class MonitoringService {
-        -PriorityQueueModule queue
-        -number interval
-        +startMonitoring() void
-        +stopMonitoring() void
-        +getHealthStatus() Object
-        +emitMetrics() void
-    }
-    
-    class FeatureFlag {
-        +isEnabled() boolean
-        +toggle(state) void
-        +getConfig() Object
-    }
-    
-    PriorityQueueModule --> Redis: Uses
-    JobProcessor --> PriorityQueueModule: Dequeues from
-    MonitoringService --> PriorityQueueModule: Monitors
-    JobProcessor --> FeatureFlag: Checks
-    
-    note for PriorityQueueModule "Core queue operations\n300 lines of code"
-    note for FeatureFlag "Simple env variable\nUSE_PRIORITY_QUEUE"
-```
+![Module Internal Architecture](diagrams/module_architecture.png)
 
 ### Phase 1: Embedded Module (Day 1)
 **What:** Create priority queue module inside monolith

@@ -1,0 +1,27 @@
+graph LR
+    subgraph "Implementation Cost"
+        Dev[4 Dev Days]
+        Infra[$0 Infrastructure]
+        License[$0 Licensing]
+        Ops[$0 Operations]
+    end
+    
+    subgraph "Business Value"
+        SLA[Better SLA for Premium]
+        Satisfaction[Customer Satisfaction ↑]
+        Revenue[Retention ↑]
+        Upgrade[Free→Premium Conversion ↑]
+    end
+    
+    Dev --> TotalCost[Total: 4 Days]
+    Infra --> TotalCost
+    License --> TotalCost
+    Ops --> TotalCost
+    
+    SLA --> ROI[ROI: Week 1]
+    Satisfaction --> ROI
+    Revenue --> ROI
+    Upgrade --> ROI
+    
+    style TotalCost fill:#90EE90
+    style ROI fill:#90EE90
